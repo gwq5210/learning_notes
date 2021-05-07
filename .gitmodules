@@ -1,0 +1,3 @@
+[submodule "ref/modern-cpp-features"]
+	path = ref/modern-cpp-features
+	url = https://github.com/AnthonyCalandra/modern-cpp-features.git
