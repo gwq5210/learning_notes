@@ -1,10 +1,61 @@
+- [C++11新特性](#c11新特性)
+  - [移动语义](#移动语义)
+  - [右值引用](#右值引用)
+  - [转发引用](#转发引用)
+  - [可变参数模板](#可变参数模板)
+  - [初始化列表](#初始化列表)
+  - [静态断言](#静态断言)
+  - [auto](#auto)
+  - [Lambda表达式](#lambda表达式)
+  - [decltype](#decltype)
+  - [类型别名](#类型别名)
+  - [nullptr](#nullptr)
+  - [强类型枚举](#强类型枚举)
+  - [属性](#属性)
+  - [constexpr](#constexpr)
+  - [委托构造函数](#委托构造函数)
+  - [用户定义的字面量](#用户定义的字面量)
+  - [显式指定虚函数的覆盖](#显式指定虚函数的覆盖)
+  - [final](#final)
+  - [default和delete](#default和delete)
+  - [基于范围的for循环](#基于范围的for循环)
+  - [用于移动语义的成员函数](#用于移动语义的成员函数)
+  - [转换构造函数](#转换构造函数)
+  - [显式转换函数](#显式转换函数)
+  - [inline命名空间](#inline命名空间)
+  - [非静态数据成员初始化](#非静态数据成员初始化)
+  - [尖括号](#尖括号)
+  - [引用限定的成员函数](#引用限定的成员函数)
+  - [返回类型后置](#返回类型后置)
+  - [noexcept](#noexcept)
+  - [char32_t和char16_t](#char32_t和char16_t)
+  - [原始字符串字面量](#原始字符串字面量)
+- [C++11库特性](#c11库特性)
+  - [std::move](#stdmove)
+  - [std::forward](#stdforward)
+  - [std::thread](#stdthread)
+  - [std::to_string](#stdto_string)
+  - [类型萃取](#类型萃取)
+  - [智能指针](#智能指针)
+  - [std::chrono](#stdchrono)
+  - [元组](#元组)
+  - [std::tie](#stdtie)
+  - [std::array](#stdarray)
+  - [无序容器](#无序容器)
+  - [std::make_shared](#stdmake_shared)
+  - [std::ref](#stdref)
+  - [内存模型](#内存模型)
+  - [std::async](#stdasync)
+  - [std::begin/end](#stdbeginend)
+  - [参考](#参考)
+
 # C++11新特性
 
 ## 移动语义
 - 移动对象是将这个对象所管理资源的所有权转移到另一个对象
 - 这往往能带来性能上的提升，移动资源通常只需要进行指针操作
-- 移动语义可以用在临时对象或者显式调用std::move实现
-- 另外移动语义可以作用在不可复制对象上，例如std::unique_ptr，使其可以在不同作用域之间进行转移
+- 移动语义可以用在临时对象或者显式调用`std::move`实现
+- 另外移动语义可以作用在不可复制对象上，例如`std::unique_ptr`，使其可以在不同作用域之间进行转移
 
 ## 右值引用
 - 右值引用是C++11新引入的新引用类型
@@ -37,7 +88,7 @@ f(std::move(xr2)); // calls f(int&& x)
 
 ## 转发引用
 - 可以通过T&&（T是模板类型参数，且不能有cv限定）或auto&&（但当其从花括号包围的初始化器列表推导时则不是）创建一个转发引用
-- 转发引用是一种特殊的引用，它保持函数实参的值类别，使得能利用 std::forward 转发实参——完美转发。也就是左值转发为左值，临时对象转发为右值
+- 转发引用是一种特殊的引用，它保持函数实参的值类别，使得能利用`std::forward`转发实参——完美转发。也就是左值转发为左值，临时对象转发为右值
 - 转发引用根据类型可以绑定到左值引用或右值引用。有以下规则，称为引用坍缩或引用折叠（reference collapsing）
 - 也就是右值引用的右值引用坍缩成右值引用，所有其他组合均坍缩成左值引用
 ```
@@ -138,7 +189,7 @@ sum(1.5, 2.0, 3.7); // 7.2
 
 ## 初始化列表
 - 初始化列表类似数组，可以通过花括号创建
-- {1, 2, 3}的类型是std::initializer_list<int>
+- {1, 2, 3}的类型是`std::initializer_list<int>`
 
 <details close>
 <summary>详细信息</summary>
@@ -276,7 +327,7 @@ String s {"foo"};
 ```
 
 ## nullptr
-- nullptr用来替代NULL宏，它的类型为std::nullptr_t
+- nullptr用来替代NULL宏，它的类型为`std::nullptr_t`
 - nullptr可以隐式转换为其他任意指针类型，除bool外，不能转换为整数类型
 
 ```
@@ -628,7 +679,7 @@ auto add(T a, U b) -> decltype(a + b) {
 
 ## noexcept
 - 说明是否会引发异常
-- noexcept函数可以调用可能抛出异常的函数，当出现这种情况，会直接调用std::terminate结束程序
+- noexcept函数可以调用可能抛出异常的函数，当出现这种情况，会直接调用`std::terminate`结束程序
 
 ```
 void func1() noexcept;        // does not throw
@@ -670,3 +721,195 @@ Hello,
 # C++11库特性
 
 ## std::move
+- `std::move`用来实现移动语义，定义如下，即强制转换为右值引用
+
+```
+template <typename T>
+typename remove_reference<T>::type&& move(T&& arg) {
+  return static_cast<typename remove_reference<T>::type&&>(arg);
+}
+```
+
+## std::forward
+- `std::forward`进行参数转发，保留值类别和cv限定符，可以实现完美转发
+
+```
+// 转发左值到左值或右值
+template <typename T>
+T&& forward(typename remove_reference<T>::type& arg) {
+  return static_cast<T&&>(arg);
+}
+
+// 转发右值到右值
+template <typename T>
+T&& forward(typename remove_reference<T>::type&& arg) {
+  return static_cast<T&&>(arg);
+}
+
+template <typename T, typename... Args>
+T* construct_at(T* p, Args&&... args) {
+  new (p) T(std::forward<Args>(args)...);
+  return p;
+}
+```
+
+## std::thread
+- 提供对线程的控制
+
+```
+void foo(bool clause) { /* do something... */ }
+
+std::vector<std::thread> threadsVector;
+threadsVector.emplace_back([]() {
+  // Lambda function that will be invoked    
+});
+threadsVector.emplace_back(foo, true);  // thread will run foo(true)
+for (auto& thread : threadsVector) {
+  thread.join(); // Wait for threads to finish
+}
+```
+
+## std::to_string
+- 将数值类型转换为`std::string`
+
+```
+std::to_string(1.2); // == "1.2"
+std::to_string(123); // == "123"
+```
+
+## 类型萃取
+- 通过编译时的模板接口来获取或修改类型
+
+```
+static_assert(std::is_integral<int>::value);
+static_assert(std::is_same<int, int>::value);
+static_assert(std::is_same<std::conditional<true, int, double>::type, int>::value);
+```
+
+## 智能指针
+- 引入了新的智能指针`std::unique_ptr`,`std::share_ptr`和`std::weak_ptr`
+- 不推荐使用`std::auto_ptr`，其在C++17中被移除
+- 推荐使用`std::make_shared`和`std::make_unique`来创建智能指针
+- `std::unique_ptr`是不可复制，但可移动的对象
+- `std::shared_ptr`通过引用计数来实现，引用计数是线程安全的，但是它管理的对象不是
+
+## std::chrono
+- 用来处理时间库
+
+```
+std::chrono::time_point<std::chrono::steady_clock> start, end;
+start = std::chrono::steady_clock::now();
+// Some computations...
+end = std::chrono::steady_clock::now();
+
+std::chrono::duration<double> elapsed_seconds = end - start;
+double t = elapsed_seconds.count(); // t number of seconds, represented as a `double`
+```
+
+## 元组
+- 元组是固定大小的可以拥有不同类型值的集合，是泛化的`std::pair`
+
+```
+// `playerProfile` has type `std::tuple<int, const char*, const char*>`.
+auto playerProfile = std::make_tuple(51, "Frans Nielsen", "NYI");
+std::get<0>(playerProfile); // 51
+std::get<1>(playerProfile); // "Frans Nielsen"
+std::get<2>(playerProfile); // "NYI"
+```
+
+## std::tie
+- 可以创建元组的左值引用
+- 可以用在`std::pair`和`std::tuple`上，可以通过`std::ignore`来忽略对应的值
+- 在C++17中可以使用结构化绑定来替代
+
+```
+// With tuples...
+std::string playerName;
+std::tie(std::ignore, playerName, std::ignore) = std::make_tuple(91, "John Tavares", "NYI");
+
+// With pairs...
+std::string yes, no;
+std::tie(yes, no) = std::make_pair("yes", "no");
+```
+
+## std::array
+- 是固定大小的容器，类似数组，支持一般容器的操作
+
+```
+std::array<int, 3> a = {2, 1, 3};
+std::sort(a.begin(), a.end()); // a == { 1, 2, 3 }
+for (int& x : a) x *= 2; // a == { 2, 4, 6 }
+```
+
+## 无序容器
+- 拥有常量操作时间，包括`std::unordered_map`,`std::unordered_multimap`,`unordered_set`和`unordered_multiset`
+
+## std::make_shared
+- `std::make_shared`是创建`std::shared_ptr`对象的推荐方式，原因如下
+  - 避免使用new运算符
+  - 指定指针的类型时，避免代码重复
+  - 提供了异常安全
+  - 避免两次内存分配，即一次new T和一次智能指针的内存分配
+
+```
+// function_that_throws出现异常时，可能造成内存泄漏
+foo(std::shared_ptr<T>{new T{}}, function_that_throws(), std::shared_ptr<T>{new T{}});
+foo(std::make_shared<T>(), function_that_throws(), std::make_shared<T>());
+```
+
+## std::ref
+- 用来创建`std::reference_wrapper`对象的函数，可以绑定一个值的引用
+- 通常用在使用一般引用无法编译或类型推导无法满足需求的地方
+- `std::cref`可以创建常量引用
+
+```
+// create a container to store reference of objects.
+auto val = 99;
+auto _ref = std::ref(val);
+_ref++;
+auto _cref = std::cref(val);
+//_cref++; does not compile
+std::vector<std::reference_wrapper<int>>vec; // vector<int&>vec does not compile
+vec.push_back(_ref); // vec.push_back(&i) does not compile
+cout << val << endl; // prints 100
+cout << vec[0] << endl; // prints 100
+cout << _cref; // prints 100
+```
+
+## 内存模型
+- C++11引入了内存模型，可以支持线程和原子操作
+- 包括：atomic loads/stores, compare-and-swap, atomic flags, promises, futures, locks, and condition variables等
+
+## std::async
+- `std::async`可以异步或延迟执行给定的函数，返回一个保存函数执行结果的`std::future`
+
+```
+int foo() {
+  /* Do something here, then return the result. */
+  return 1000;
+}
+
+auto handle = std::async(std::launch::async, foo);  // create an async task
+auto result = handle.get();  // wait for the result
+```
+
+## std::begin/end
+- 返回容器的begin和end迭代器
+- 可以用在原始数组上
+
+```
+template <typename T>
+int CountTwos(const T& container) {
+  return std::count_if(std::begin(container), std::end(container), [](int item) {
+    return item == 2;
+  });
+}
+
+std::vector<int> vec = {2, 2, 43, 435, 4543, 534};
+int arr[8] = {2, 43, 45, 435, 32, 32, 32, 32};
+auto a = CountTwos(vec); // 2
+auto b = CountTwos(arr);  // 1
+```
+
+## 参考
+* [modern-cpp-features](https://github.com/AnthonyCalandra/modern-cpp-features)
