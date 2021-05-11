@@ -47,7 +47,7 @@
   - [内存模型](#内存模型)
   - [std::async](#stdasync)
   - [std::begin/end](#stdbeginend)
-  - [参考](#参考)
+- [参考](#参考)
 
 # C++11语言新特性
 
@@ -959,6 +959,6 @@ auto a = CountTwos(vec); // 2
 auto b = CountTwos(arr);  // 1
 ```
 
-## 参考
+# 参考
 
 - [modern-cpp-features](https://github.com/AnthonyCalandra/modern-cpp-features)

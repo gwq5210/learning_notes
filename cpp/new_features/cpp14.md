@@ -11,7 +11,7 @@
   - [标准库的用户定义字面量](#标准库的用户定义字面量)
   - [编译时的整数序列](#编译时的整数序列)
   - [std::make_unique](#stdmake_unique)
-  - [参考](#参考)
+- [参考](#参考)
 
 # C++14语言新特性
 
@@ -210,6 +210,6 @@ foo(std::unique_ptr<T>{new T{}}, function_that_throws(), std::unique_ptr<T>{new 
 foo(std::make_unique<T>(), function_that_throws(), std::make_unique<T>());
 ```
 
-## 参考
+# 参考
 
 - [modern-cpp-features](https://github.com/AnthonyCalandra/modern-cpp-features)
