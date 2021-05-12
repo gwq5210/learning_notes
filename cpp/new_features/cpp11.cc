@@ -1,11 +1,3 @@
-/*
- * @Author: your name
- * @Date: 2021-05-05 15:33:21
- * @LastEditTime: 2021-05-09 17:36:13
- * @LastEditors: Please set LastEditors
- * @Description: In User Settings Edit
- * @FilePath: \learing_notes\cpp\new_features\cpp11.cc
- */
 #include <cstdio>
 #include <memory>
 
