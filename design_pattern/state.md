@@ -1,10 +1,13 @@
 
-- [状态模式概述](#状态模式概述)
-- [状态模式定义与特点](#状态模式定义与特点)
-  - [优点](#优点)
-  - [缺点](#缺点)
-- [状态模式的结构](#状态模式的结构)
-- [状态模式的实现](#状态模式的实现)
+- [状态模式](#状态模式)
+  - [状态模式概述](#状态模式概述)
+  - [状态模式定义与特点](#状态模式定义与特点)
+    - [优点](#优点)
+    - [缺点](#缺点)
+  - [状态模式的结构](#状态模式的结构)
+  - [状态模式的实现](#状态模式的实现)
+
+# 状态模式
 
 ## 状态模式概述
 
@@ -47,3 +50,27 @@
 ![状态模式结构图](images/state.gif)
 
 ## 状态模式的实现
+
+本例子实现了一个投票的简单例子
+
+- 同一个用户可以投一次票，初始状态为正常状态(NormalVoteState)
+- 成功投票之后，状态转换为重复投票状态(RepeatVoteState)，不能再进行投票
+
+例子十分简单，具体工程上，可以实现很复杂的状态转换
+
+核心代码如下，具体可参见代码[state.cc](state.cc)和[state.h](state.h)
+
+```cpp
+void NormalVoteState::vote(VoteManager* manager, const std::string& username) {
+  manager->inc_vote(username);
+  manager->set_state(&VoteManager::repeat_vote_state);
+  printf("%s, 投票成功!\n", username.c_str());
+}
+
+int main(int argc, char* argv[]) {
+  VoteManager manager;
+  manager.vote("gwq5210");
+  manager.vote("gwq5210");
+  return 0;
+}
+```
