@@ -152,15 +152,16 @@ T add(T a, T b) {
 }
 ```
 
-- 约束表达式的参数列表是可选的，约束表达式的要求是以下之一
-  - 简单要求——断言给定的表达式是有效的
+约束表达式的参数列表是可选的，约束表达式的要求是以下之一
+
+- 简单要求——断言给定的表达式是有效的
 
 ```cpp
 template <typename T>
 concept callable = requires (T f) { f(); };
 ```
 
-  - 类型要求——用`typename`关键字表示，后跟一个类型名称，表示给定的类型名称有效
+- 类型要求——用`typename`关键字表示，后跟一个类型名称，表示给定的类型名称有效
 
 ```cpp
 struct foo {
@@ -200,7 +201,7 @@ g(bar{}); // ERROR: Fails requirement B.
 g(baz{}); // PASS.
 ```
 
-  - 复合要求——用大括号表示的表达式，后跟返回类型或类型约束
+- 复合要求——用大括号表示的表达式，后跟返回类型或类型约束
 
 ```cpp
 template <typename T>
@@ -211,7 +212,7 @@ concept C = requires(T x) {
 };
 ```
 
-  - 嵌套要求——用`requires`表示，指定其他约束类型
+- 嵌套要求——用`requires`表示，指定其他约束类型
 
 ```cpp
 template <typename T>
