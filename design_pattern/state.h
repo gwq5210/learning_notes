@@ -1,5 +1,6 @@
 #include <cstdio>
 
+#include <string>
 #include <unordered_map>
 
 class VoteManager;
