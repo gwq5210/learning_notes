@@ -151,6 +151,8 @@ POSIX可以分为7类：
 long sysconf(int name);
 long pathconf(const char *pathname, int name);
 long fpathconf(int fd, int name);
+
+若成功，返回相应值；若出错，返回-1
 ```
 
 我们讨论这三个函数不同的返回值：
@@ -233,6 +235,8 @@ UNIX系统大多数的文件IO只需要5个函数：open，read，write，lseek�
 
 int open(const char *path, int oflag, ... /* mode_t mode */);
 int openat(int fd, const char *path, int oflag, ... /* mode_t mode */);
+
+若成功，返回文件描述符；若出错，返回-1
 ```
 
 path参数时要打开或创建的文件的名字。oflag参数可用来说明此函数的多个选项。用下面一个或多个常量进行或来构成oflag参数。
@@ -283,9 +287,15 @@ openat函数希望解决两个问题，一是让线程可以使用相对路径�
 int creat(const char *path, mode_t mode);
 // 等效于
 open(path, O_WRONLY | O_CREAT | O_TRUNC, mode);
+
+若成功，返回只为写打开的文件描述符；若出错，返回-1
 ```
 
-它只以写的方式打开所创建的文件
+它只以写的方式打开所创建的文件, 可以使用open代替, 以读写方式打开创建的文件
+
+```cpp
+open(path, O_RDWR | O_CREAT | O_TRUNC, mode);
+```
 
 ## close函数
 
@@ -295,6 +305,8 @@ open(path, O_WRONLY | O_CREAT | O_TRUNC, mode);
 #include <unistd.h>
 
 int close(fd);
+
+若成功，返回0；若出错，返回-1
 ```
 
 关闭一个文件时，还会释放该进程加在该文件上的所有记录锁。当一个进程终止，内核自动关闭它所有的打开文件。
@@ -309,6 +321,8 @@ lseek可以显式的设置偏移量：
 #include <unistd.h>
 
 off_t lseek(int fd, off_t offset, int whence);
+
+若成功，返回新的文件偏移量；若出错，返回-1
 ```
 
 对offset参数的解释与whence的值有关：
@@ -342,6 +356,8 @@ read函数从打开的文件中读取数据：
 #include <unistd.h>
 
 ssize_t read(int fd, void *buf, size_t nbytes);
+
+返回已读到的字节数，若已到文件尾，返回0；若出错，返回-1
 ```
 
 如果read成功，返回读取到的字节数。如已到达文件末端，返回0。
@@ -364,11 +380,13 @@ write函数向打开的文件写入数据。
 #include <unistd.h>
 
 ssize_t write(int fd, const void *buf, size_t nbytes);
+
+若成功，返回已写的字节数；若出错，返回-1
 ```
 
 返回值通常与nbytes相同，否则表示出错，write出错的一个常见错误是磁盘已经写满，或者超过了一个给定进程的文件长度限制。
 
-对于普通文件，写操作从文件的当前偏移量处开始。如果在打开文件时指定了O_APPEND选项，则在每次写操作前，将文件的偏移量设置在文件的结尾处，因此这种方式不能写中间的某个部分。在一次写成功后，文件偏移量增加实际写入的字节数。
+对于普通文件，写操作从文件的当前偏移量处开始。如果在打开文件时指定了O_APPEND选项，则在每次写操作前，将文件的偏移量设置在文件的结尾处，因此这种方式不能写中间的某个部分。在一次写成功后，文件偏移量增加实际写入的字节数。指定O_APPEND选项时，文件偏移量调整和写入操作合并为原子操作。
 
 ## IO的效率
 
@@ -388,13 +406,23 @@ UNIX支持在不同进程间共享打开文件。
 
 ![打开文件的内核数据结构](images/打开文件的内核数据结构.png)
 
-文件描述符标志和文件状态标志在作用范围方面有区别，前者只用于一个进程的某一个描述符，而后者则应用于指向该给定文件表项的任何进程中所有的描述符。
+不同进程都有自己的文件表项（使得不同进程可以有不同的当前文件偏移量），两个进程可以打开同一个文件，但同一个文件只有一个v节点表项。
+
+![两个独立进程各自打开同一个文件](images/两个独立进程各自打开同一个文件.png)
+
+同时也可能有多个文件描述符指向同一个文件表项，例如dup函数和fork函数（fork之后，父进程和子进程各自的每一个打开文件描述符共享同一个文件表项）
+
+文件描述符标志和文件状态标志在作用范围方面有区别，前者只用于一个进程的某一个描述符，而后者则应用于指向该给定文件表项的任何进程中所有的描述符。可以通过fcntl函数获取和修改文件描述符标志和文件状态标志。
+
+多个进程读取同一个文件都能正确的工作，每个进程都有它自己的文件表项，也有自己的当前文件偏移量。但多个进程写同一个文件时，则可能产生预想不到的结果。为了避免这种情况，我们需要了解原子操作。
 
 ## 原子操作
 
 一般而言，原子操作(atomic operation)是由多步操作组成的一个操作。如果该操作原子地执行，则要么执行完所有步骤，要么一步也不执行，不可能只执行所有步骤的一个子集。
 
-多个进程对同一个文件追加数据，可以在打开文件时指定O_APPEND标志。这使得每次写操作之前内核都将进程的当前文件偏移量设置到该文件的末尾。对于对于这种write操作在不同进程间是不是原子的，后续有文章来验证。
+多个进程对同一个文件追加数据，可以在打开文件时指定O_APPEND标志。这使得每次写操作之前内核都将进程的当前文件偏移量设置到该文件的末尾。对于这种write操作在不同进程间是不是原子的，后续有文章来验证。
+
+open函数可以使用O_CREAT和O_EXCL来原子的创建一个不存在的文件，如果文件已存在，则会创建失败
 
 pread和pwrite允许原子性的定位并执行IO。
 
@@ -402,7 +430,12 @@ pread和pwrite允许原子性的定位并执行IO。
 #include <unistd.h>
 
 ssize_t pread(int fd, void *buf, size_t nbytes, off_t offset);
+
+返回读到的字节数，若已到文件结尾，返回0；若出错，返回-1
+
 size_t pwrite(int fd, const void *buf, size_t nbytes, off_t offset);
+
+若成功返回已写的字节数；若出错，返回-1
 ```
 
 调用pread相当于调用lseek后调用read，但是pread又与这种顺序调用有如下重要区别：
@@ -421,6 +454,8 @@ pwrite也有类似的问题
 
 int dup(int fd);
 int dup2(int fd, int fd2);
+
+若成功，返回新的文件描述符；若出错，返回-1
 ```
 
 由dup返回的新文件描述符一定是当前可用文件描述符中的最小数值。对于dup2，可以用fd2参数指定新描述符的值，如果fd2已经打开，则先将其关闭。如若fd等于fd2，则dup2返回fd2而不关闭它。否则，fd2的FD_CLOEXEC文件描述符就被清除，这样fd2在进程调用exec时是打开状态。
@@ -453,6 +488,8 @@ dup2(fd, fd2);	// close(fd2); fcntl(fd, F_DUPFD, fd2);
 int fsync(int fd);
 int fdatasync(int fd);
 
+若成功，返回0；若出错，返回-1
+
 void sync(void);
 ```
 
@@ -468,6 +505,8 @@ fcntl可以改变已经打开文件的属性：
 #include <unistd.h>
 
 int fcntl(int fd, int cmd, ... /* int arg */);
+
+若成功，返回值依赖cmd；若出错，返回-1
 ```
 
 fcntl函数有如下5个功能：
@@ -478,11 +517,14 @@ fcntl函数有如下5个功能：
 - 获取或设置异步IO所有权(F_GETOWN或F_SETOWN)
 - 获取或设置记录锁(F_GETLK，F_SETLK或F_SETLKW)
 
-F_DUPFD，复制文件描述符fd。新的描述符作为函数返回值返回。它是尚未打开的各描述符中大于或等于第三个参数值中各值得最小值。
+F_DUPFD，复制文件描述符fd。新的描述符作为函数返回值返回。它是尚未打开的各描述符中大于或等于第三个参数值中各值得最小值。FD_CLOEXEC参考dup
 F_DUPFD_CLOEXEC，复制文件描述符，设置文件描述符关联的FD_CLOEXEC文件描述符的值，返回新文件描述符。
 F_GETFD，对应于fd的文件描述符标志作为函数值返回，当前只定义了一个文件描述符标志FD_CLOEXEC
 F_SETFD，对于fd设置文件描述符标志
-F_GETFL，对应于fd的文件状态标志作为函数值返回。5个访问方式标志(O_RDONLY，O_WRONLY，O_RDWR，O_EXEC以及O_SEARCH)并不各占一位，这5个值互斥。因此首先必须使用屏蔽字O_ACCMODE取得访问方式，然后再进行比较。
+F_GETFL，对应于fd的文件状态标志作为函数值返回。可以参考open函数。5个访问方式标志(O_RDONLY，O_WRONLY，O_RDWR，O_EXEC以及O_SEARCH)并不各占一位，这5个值互斥。因此首先必须使用屏蔽字O_ACCMODE取得访问方式，然后再进行比较。
+
+![文件状态标志](images/文件状态标志.png)
+
 F_SETFL，将文件状态标志设置为第三个参数的值，可以更改的标志是：O_APPEND，O_NONBLOCK，O_SYNC，O_DSYNC，O_RSYNC，O_FSYNC和O_ASYNC。
 F_GETOWN，获取当前接收SIGIO和SIGURG信号的进程ID或进程组ID。
 F_SETOWN，设置接收SIGIO和SIGURG信号的进程ID或进程组ID。正的arg指定一个进程ID，负的arg表示等于arg绝对值的一个进程组ID。
@@ -500,6 +542,8 @@ ioctl函数一直是IO操作的杂物箱。终端IO是使用ioctl最多的地方
 // #include <sys/ioctl.h>
 
 int ioctl(int fd, int request, ...);
+
+若成功，返回0；若出错，返回其他值
 ```
 
 不能用本章其他io函数表示的IO操作通常都能用ioctl表示。
@@ -523,6 +567,8 @@ int stat(const char *restrict pathname, staruct stat *restrict buf);
 int fstat(int fd, struct stat *buf);
 int lstat(const char *restrict pathname, struct stat *restrict buf);
 int fstatat(int fd, const char *restrict pathname, struct stat *restrict buf, int flag);
+
+若成功，返回0；若出错，返回-1
 ```
 
 stat将返回与文件pathname有关的信息结构。fstat函数获得已在描述符fd上打开文件的有关信息。lstat函数类似stat，但是当命名文件是一个符号链接时，lstat返回符号链接本身的有关信息，而不是由符号链接引用的文件的信息。fstatat函数为一个相对于当前打开目录（由fd参数指向）的路径名返回文件统计信息。flag参数控制着是否跟随着符号链接。当AT_SYMLINK_NOFOLLOW标志被设置时，fstatat函数不会跟随符号链接，而是返回符号链接本身的信息。否则，在默认情况下，返回的是符号链接所指向的文件的信息。如果fd参数的值是AT_FDCWD，并且pathname参数是一个相对路径名，fstatat会计算相对于当前目录的pathname参数。如果pathname是一个绝对路径名，fd参数就会被忽略。这两种情况下，根据flag的取值，fstatat函数的作用就跟stat或lstat函数一样。
@@ -626,7 +672,7 @@ st_mode也包含了对文件的文件权限位。这里的文件是前面提到�
 
 对于访问权限以各种方式由不同函数使用。
 
-- 第一个规则是我们用名字打开任一类型的文件时，对该名字包含中的每一个目录，包括它可能隐含的当前工作目录都应具有执行权限。这也是为什么对于目录其执行权限位常被称为搜索位的原因。
+- 第一个规则是我们用名字打开任一类型的文件时，对该名字包含中的每一个目录，包括它可能隐含的当前工作目录都应具有执行权限。这也是为什么对于目录其执行权限位常被称为搜索位的原因。注意目录读权限和执行权限的区别
 - 对于一个文件的读权限决定了我们是否能够打开现有文件进行读操作，对应了open函数的o_RDONLY和O_RDWR标志
 - 对于一个文件的写权限决定了我们是否能够打开现有文件进行写操作，对应了open函数的O_WRONLY和O_RDWR标志
 - 为了在open函数中对一个文件指定O_TRUNC标志，必须对该文件具有写权限
@@ -641,6 +687,8 @@ st_mode也包含了对文件的文件权限位。这里的文件是前面提到�
 - 若进程的有效组ID或进程的附属组ID之一等于文件的组ID，那么如果组适当的访问权限位被设置，则允许访问，否则拒绝访问。
 - 若其他用户适当的访问权限位被设置，则允许访问；否则拒绝访问。
 
+按照顺序执行以上4步
+
 ## 新文件和目录的所有权
 
 进程创建的新文件的用户ID设置为进程的有效用户ID。对于组ID，POSIX.1允许实现选择以下之一作为新文件的组ID：
@@ -649,6 +697,8 @@ st_mode也包含了对文件的文件权限位。这里的文件是前面提到�
 - 新文件的组ID可以是它所在目录的组ID
 
 有些实现默认使用第二种方式，例如Mac OS 10.6.8。linux 3.2.0默认情况下新文件的组ID取决于它所在目录的设置组ID位是否被设置，如果设置，则使用第二种方式，否则使用第一种方式。
+
+因此，mkdir需要传递目录的设置组ID
 
 ## 函数access和faccessat
 
@@ -659,6 +709,8 @@ st_mode也包含了对文件的文件权限位。这里的文件是前面提到�
 
 int access(const char *pathname, int mode);
 int faccess(int fd, const char *pathname, int mode, int flag);
+
+若成功，返回0；若出错，返回-1
 ```
 
 如果mode设置为F_OK，则测试文件是否存在。否则是三个常量的按位或：R_OK，W_OK、X_OK。
@@ -675,6 +727,8 @@ flag参数可以改变faccessat的行为，如果flag设置为AT_EACCESS，访�
 #include <sys/stat.h>
 
 mode_t umaks(mode_t mode);
+
+返回之前的文件模式创建屏蔽字
 ```
 
 进程创建一个文件或目录时就一定会使用文件模式创建屏蔽字，在其中为1的位，在文件mode中相应的位一定会被关闭。
@@ -691,6 +745,8 @@ mode_t umaks(mode_t mode);
 int chmod(const char *pathname, mode_t mode);
 int fchmod(int fd, mode_t mode);
 int fchmodat(int fd, const char *pathname, mode_t mode, int flag);
+
+若成功，返回0；若出错，返回-1
 ```
 
 fchmodat函数在两种情况下与chmod函数一样：一种是pathname参数为绝对路径；另一种是fd参数取值为AT_FDCWD且pathname参数为相对路径。否则fchmodat相对于fd打开的目录来计算pathname。flag参数可以改变fchmodat的行为，当设置了AT_SYMLINK_NOFOLLOW时，fchmodat不跟随符号链接。
@@ -747,6 +803,8 @@ int chown(const char *pathname, uid_t owner, gid_t group);
 int fchown(int fd, uid_t owner, gid_t group);
 int fchownat(int fd, const char *pathname, uid_t owner, gid_t group, int flag);
 int lchown(const char *pathname, uid_t owner, gid_t group);
+
+若成功，返回0；若出错，返回-1
 ```
 
 除了引用的文件时符号链接外，4个函数都类似。在符号链接的情况下，lchown和fchownat(设置了AT_SYMLINK_NOFOLLOW)更改符号链接本身的所有者，而不是符号链接指向的文件的所有者。
@@ -783,6 +841,8 @@ stat结构成员st_size表示以字节为单位的长度。此字段只对普通
 
 int truncate(const char *pathname, off_t length);
 int ftruncate(int fd, off_t length);
+
+若成功，返回0；若出错，返回-1
 ```
 
 这两个函数将一个现有文件截断到长度length。要么缩短文件，要么产生一个空洞。
@@ -818,6 +878,8 @@ UNIX文件系统有多种不同的实现。每一种文件系统都有它各自�
 
 int link(const char *existingpath, const char *newpath);
 int linkat(int efd, const char *existingpath, int nfd, const char *newpath, int flag);
+
+若成功，返回0；若出错，返回-1
 ```
 
 这两个函数创建一个新目录项newpath，它引用现有文件existingpath，如果newpath已经存在，则返回出错。只创建newpath中的最后一个分量，路径中的其他部分应该已经存在。
@@ -826,18 +888,24 @@ int linkat(int efd, const char *existingpath, int nfd, const char *newpath, int 
 
 当现有文件名是符号链接时，由参数flag来控制linkat函数是创建指向现有符号链接的链接还是创建指向现有符号链接指向的文件的链接。如果在flag中设置了AT_SYMLINK_FOLLOW标志，就创建指向符号链接目标的链接。如果这个标志被清除了，则创建一个指向符号链接本身的链接。创建新目录项和增加链接计数应当是一个原子操作。
 
-虽然POSIX.1允许实现支持跨越文件系统的链接，但是大多数现有系统要求现有的和新建的两个文件路径名在同一个文件系统中。只有超级用户才能够创建指向一个目录的硬链接。这样可能在系统中形成循环。
+虽然POSIX.1允许实现支持跨越文件系统的链接，但是大多数现有系统要求现有的和新建的两个文件路径名在同一个文件系统中。只有超级用户才能够创建指向一个目录的硬链接。是因为这样可能在系统中形成循环，并且程序很难处理这种情况
 
-为了删除一个现有的目录项，可以调用unlink函数：
+为了删除一个现有的目录项（文件），可以调用unlink函数：
 
 ```cpp
 #include <unistd.h>
 
 int unlink(const char *pathname);
 int unlinkat(int fd, const char *path, int flag);
+
+若成功，返回0；若出错，返回-1
 ```
 
 这两个函数删除目录项，并将由pathname所引用文件的链接计数减1，如果该文件还有其他链接，则仍可通过其他链接访问该文件的数据。如果出错，则不对文件进行任何修改。
+
+需要注意unlink函数无法用于目录
+
+删除目录内文件的权限，参考粘着位
 
 当链接计数为0时，该文件的内容才可被删除。另一个条件也会阻止删除文件的内容——只要有进程打开了文件。关闭一个文件时，内核首先检查打开该文件的进程个数；如果这个计数达到0，内核再去检查其链接计数，如果计数也是0，那么就删除该文件的内容。
 
@@ -853,7 +921,11 @@ unlinkat使用fd作为相对路径起点。或者设置为AT_FDCWD，则相对�
 #include <stdio.h>
 
 int remove(const char *pathname);
+
+若成功，返回0；若出错，返回-1
 ```
+
+ISO C使用remove的原因是实现C标准的大多数非UNIX系统不支持文件链接
 
 ## 函数rename和renameat
 
@@ -864,6 +936,8 @@ int remove(const char *pathname);
 
 int rename(const char *oldname, const char *newname);
 int renameat(int oldfd, const char *oldname, int newfd, const char *newname);
+
+若成功，返回0；若出错，返回-1
 ```
 
 根据对oldname是指文件，目录还是符号链接或者newname已经存在我们需要说明：
