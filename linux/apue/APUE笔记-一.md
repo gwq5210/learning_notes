@@ -40,7 +40,6 @@
   - [函数chdir，fchdir和getcwd](#函数chdirfchdir和getcwd)
   - [设备特殊文件](#设备特殊文件)
   - [文件访问权限位小结](#文件访问权限位小结)
-- [第五章 标准IO库](#第五章-标准io库)
 
 # 第一章 UNIX基础知识
 
@@ -404,11 +403,11 @@ UNIX支持在不同进程间共享打开文件。
 
 不同实现可能有不同，但是是有必要保存这些信息。
 
-![打开文件的内核数据结构](images/打开文件的内核数据结构.png)
+![打开文件的内核数据结构](https://gwq5210.com/images/打开文件的内核数据结构.png)
 
 不同进程都有自己的文件表项（使得不同进程可以有不同的当前文件偏移量），两个进程可以打开同一个文件，但同一个文件只有一个v节点表项。
 
-![两个独立进程各自打开同一个文件](images/两个独立进程各自打开同一个文件.png)
+![两个独立进程各自打开同一个文件](https://gwq5210.com/images/两个独立进程各自打开同一个文件.png)
 
 同时也可能有多个文件描述符指向同一个文件表项，例如dup函数和fork函数（fork之后，父进程和子进程各自的每一个打开文件描述符共享同一个文件表项）
 
@@ -462,7 +461,7 @@ int dup2(int fd, int fd2);
 
 这些函数返回的新描述符与参数fd共享同一个文件表项。
 
-![dup后的内核数据结构](images/dup后的内核数据结构.png)
+![dup后的内核数据结构](https://gwq5210.com/images/dup后的内核数据结构.png)
 
 赋值描述符的另一个方法是使用fcntl函数
 
@@ -523,7 +522,7 @@ F_GETFD，对应于fd的文件描述符标志作为函数值返回，当前只�
 F_SETFD，对于fd设置文件描述符标志
 F_GETFL，对应于fd的文件状态标志作为函数值返回。可以参考open函数。5个访问方式标志(O_RDONLY，O_WRONLY，O_RDWR，O_EXEC以及O_SEARCH)并不各占一位，这5个值互斥。因此首先必须使用屏蔽字O_ACCMODE取得访问方式，然后再进行比较。
 
-![文件状态标志](images/文件状态标志.png)
+![文件状态标志](https://gwq5210.com/images/文件状态标志.png)
 
 F_SETFL，将文件状态标志设置为第三个参数的值，可以更改的标志是：O_APPEND，O_NONBLOCK，O_SYNC，O_DSYNC，O_RSYNC，O_FSYNC和O_ASYNC。
 F_GETOWN，获取当前接收SIGIO和SIGURG信号的进程ID或进程组ID。
@@ -853,11 +852,11 @@ UNIX文件系统有多种不同的实现。每一种文件系统都有它各自�
 
 我们可以把磁盘分成一个或多个分区。每个分区可以包含一个文件系统。i节点是固定长度的记录项，它包含有关文件的大部分信息。
 
-![磁盘、分区和文件系统](images/磁盘、分区和文件系统.jpg)
+![磁盘、分区和文件系统](https://gwq5210.com/images/磁盘、分区和文件系统.jpg)
 
 下面是比较详细的i节点和数据块图
 
-![i节点和数据块详细图](images/i节点和数据块详细图.jpg)
+![i节点和数据块详细图](https://gwq5210.com/images/i节点和数据块详细图.jpg)
 
 在图中，我们注意到：
 
@@ -888,7 +887,7 @@ int linkat(int efd, const char *existingpath, int nfd, const char *newpath, int 
 
 当现有文件名是符号链接时，由参数flag来控制linkat函数是创建指向现有符号链接的链接还是创建指向现有符号链接指向的文件的链接。如果在flag中设置了AT_SYMLINK_FOLLOW标志，就创建指向符号链接目标的链接。如果这个标志被清除了，则创建一个指向符号链接本身的链接。创建新目录项和增加链接计数应当是一个原子操作。
 
-虽然POSIX.1允许实现支持跨越文件系统的链接，但是大多数现有系统要求现有的和新建的两个文件路径名在同一个文件系统中。只有超级用户才能够创建指向一个目录的硬链接。是因为这样可能在系统中形成循环，并且程序很难处理这种情况
+虽然POSIX.1允许实现支持跨越文件系统的链接，但是大多数现有系统要求现有的和新建的两个文件路径名在同一个文件系统中。只有超级用户才能够创建指向一个目录的硬链接。是因为这样可能在系统中形成循环，并且程序很难处理这种情况。linux不支持目录硬链接。
 
 为了删除一个现有的目录项（文件），可以调用unlink函数：
 
@@ -993,22 +992,26 @@ open的一个例外是，如果同时用O_CREAT和O_EXCL两个标志，如果路
 
 int symlink(const char *actualpath, const char *sympath);
 int symlink(const char *actualpath, int fd, const char *sympath);
+
+若成功，返回0；若出错，返回-1
 ```
 
 函数创建了一个指向actualpath的新目录项sympath，在创建符号链接时，并不要求actualpath存在，也不需要在同一个文件系统中。
 
-symlinkat函数类似，sympath根据fd作为相对路径进行计算。
+symlinkat函数类似，sympath根据fd作为相对路径进行计算。如果sympath的参数是绝对路径或fd参数设置了AT_FDCWD，那么symlinkat和symlink作用相同
 
-open函数跟随符号链接，所以提供了readlink和readlinkat函数来读取符号链接本身
+open函数跟随符号链接，所以提供了readlink和readlinkat函数来读取符号链接本身（即符号链接指向的文件名称）
 
 ```cpp
 #include <unistd.h>
 
 ssize_t readlink(const char *restrict pathname, char *restrict buf, size_t bufsize);
 ssize_t readlinkat(int fd, const char *restrict pathname, char *restrict buf, size bufsize);
+
+若成功，返回读取的字节数；若出错，返回-1
 ```
 
-两个函数组合了open，read，close的所有操作。readlinkat以fd作为相对路径。
+两个函数组合了open，read，close的所有操作，在buf中返回的符号链接的内容不以null字节终止。readlinkat以fd作为相对路径。
 
 ## 文件的时间
 
@@ -1022,7 +1025,7 @@ ssize_t readlinkat(int fd, const char *restrict pathname, char *restrict buf, si
 
 注意文件数据修改时间和i节点最后更改时间，i节点信息和文件数据是分开存放的
 
-![各种函数对三种时间的影响](images/各种函数对三种时间的影响.png)
+![各种函数对三种时间的影响](https://gwq5210.com/images/各种函数对三种时间的影响.png)
 
 ## 函数futimens，utimensat和utimes
 
@@ -1033,6 +1036,8 @@ ssize_t readlinkat(int fd, const char *restrict pathname, char *restrict buf, si
 
 int futimens(int fd, const struct timespec times[2]);
 int utimensat(int fd, const char *path, const struct timespec times[2], int flag);
+
+若成功，返回0；若出错，返回-1
 ```
 
 times数组参数的第一个元素包含访问时间，第二个元素包含修改时间，这两个值是日历时间。
@@ -1046,7 +1051,7 @@ times数组参数的第一个元素包含访问时间，第二个元素包含修
 
 执行函数的所需的权限取决于times的值，如果不修改时间戳，则不进行权限检查；如果修改，则除了对文件有写权限，进程的有效用户ID必须等于文件的所有者ID
 
-utimesns提供了使用文件名来设置时间的功能，flag可以决定是否跟随符号链接(是否设置了AT_SYMLINK_NOFOLLOW标志)，默认行为是跟随符号链接。
+utimensat提供了使用文件名来设置时间的功能，flag可以决定是否跟随符号链接(是否设置了AT_SYMLINK_NOFOLLOW标志)，默认行为是跟随符号链接。
 
 前两个函数都包含在POSIX.1中，第3个函数包含在Single UNIX Specsification的XSI扩展选项中
 
@@ -1054,6 +1059,8 @@ utimesns提供了使用文件名来设置时间的功能，flag可以决定是�
 #include <sys/time.h>
 
 int utimes(const char *pathname, const struct timeval times[2]);
+
+若成功，返回0；若出错，返回-1
 ```
 
 utimes函数对路径名进行操作。结构timeval包含两个时间戳，用秒和微妙来表示
@@ -1066,7 +1073,7 @@ struct timeval
 }
 ```
 
-我们不能对状态更改时间指定一个值，这在调用utimes函数时自动被更新。
+我们不能对状态更改时间指定一个值，这在调用utimes（及以上3个）函数时自动被更新。
 
 ## 函数mkdir，mkdirat和rmdir
 
@@ -1077,23 +1084,27 @@ struct timeval
 
 int mkdir(const char *pathname, mode_t mode);
 int mkdirat(int fd, const char *pathname, mode_t mode);
+
+若成功，返回0；若出错，返回-1
 ```
 
-这两个函数创建一个空目录。mode指定访问权限。通常我们需要目录的执行权限。
+这两个函数创建一个空目录，其中.和..是自动创建的。mode指定访问权限。通常我们需要目录的执行权限。
 
-可以使用rmdir函数删除一个空目录
+可以使用rmdir函数删除一个空目录，空目录是只包含.和..的目录
 
 ```cpp
 #include <unistd.h>
 
 int rmdir(const char *pathname);
+
+若成功，返回0；若出错，返回-1
 ```
 
 如果调用此函数使得目录的链接计数为0，并且也没有其他进程打开目录，则释放由此目录占用的空间。如果在链接计数达到0时，有一个或多个进程打开此目录，则此函数返回前删除最后一个链接及.和..项。此目录中不能再创建任何文件，但是在最后一个进程关闭它之前并不释放此目录，即使另一些进程打开该目录，它在此目录下也不能执行其他操作。因为rmdir执行成功的前提是目录是空的。
 
 ## 读目录
 
-对某个目录具有读访问权限的任一用户都能读该目录，但是为了防止文件系统混乱，只有内核才能够写目录。
+对某个目录具有读访问权限的任一用户都能读该目录，但是为了防止文件系统混乱，只有内核才能够写目录。一个目录的写权限位和执行权限位决定了在该目录中能否创建新文件以及删除文件，它们并不表示能否写目录本身
 
 目录的实际格式依赖实现。我们使用下边的函数来屏蔽这种实现细节
 
@@ -1103,12 +1114,21 @@ int rmdir(const char *pathname);
 DIR *opendir(const char *pathname);
 DIR *fdopendir(int fd);
 
+若成功，返回指针；若出错，返回NULL
+
 struct dirent *readdir(DIR *dp);
 
+若成功，返回指针；若在目录尾或出错，返回NULL
+
 void rewinddir(DIR *dp);
+
 int closedir(DIR *dp);
 
+若成功，返回0；若出错，返回-1
+
 long telldir(DIR *dp);
+
+返回与dp关联的目录中的当前位置
 
 void seekdir(DIR *dp, long loc);
 ```
@@ -1116,6 +1136,8 @@ void seekdir(DIR *dp, long loc);
 dirent结构与实现有关，但是至少包含i节点编号和目录名字。
 
 DIR是一个内部结构，用来维护正在读的目录的有关信息。
+
+目录中各目录项的顺序与实现有关。它们通常并不按字母顺序排列。
 
 ftw和nftw实现了目录的遍历
 
@@ -1128,7 +1150,11 @@ ftw和nftw实现了目录的遍历
 
 int chdir(const char *pathname);
 int fchdir(int fd);
+
+若成功，返回0；若出错，返回-1
 ```
+
+当前工作目录是进程的一个属性，所以以上函数只影响调用进程本身，不影响其他进程
 
 当前工作目录与进程相关，在shell中，cd命令是内建的命令，因为需要shell本身来调用chdir。
 
@@ -1138,7 +1164,11 @@ int fchdir(int fd);
 #include <unistd.h>
 
 char *getcwd(char *buf, size_t size);
+
+若成功，返回buf；若出错，返回NULL
 ```
+
+buf应该足以容纳绝对路径名和终止null字节，否则返回出错
 
 chdir跟随符号链接。
 
@@ -1153,6 +1183,4 @@ st_dev和st_rdev经常混淆，有关规则很简单
 
 ## 文件访问权限位小结
 
-![文件访问权限位小结](images/文件访问权限位小结.png)
-
-# 第五章 标准IO库
+![文件访问权限位小结](https://gwq5210.com/images/文件访问权限位小结.png)
