@@ -3,6 +3,18 @@
   - [缓冲](#缓冲)
   - [打开流](#打开流)
   - [读和写流](#读和写流)
+    - [输入函数](#输入函数)
+    - [输出函数](#输出函数)
+  - [每次一行IO](#每次一行io)
+  - [标准IO的效率](#标准io的效率)
+  - [二进制IO](#二进制io)
+  - [定位流](#定位流)
+  - [格式化IO](#格式化io)
+  - [标准IO库的文件描述符](#标准io库的文件描述符)
+  - [临时文件](#临时文件)
+  - [内存流](#内存流)
+  - [标准IO库的替代软件](#标准io库的替代软件)
+- [第六章 系统数据文件和信息](#第六章-系统数据文件和信息)
 
 # 第五章 标准IO库
 
@@ -146,4 +158,203 @@ int fclose(FILE* fp);
 进程正常终止时（直接调用exit或从main函数返回），则所有带未写缓冲数据的标准IO流都被冲洗，所有打开的标准IO流都被关闭
 
 ## 读和写流
+
+有三种不同的非格式化IO可以对流进行读写操作
+
+- 每次一个字符的IO。如果流带缓冲，则标准IO函数处理所有缓冲
+- 每次一行的IO。
+- 直接IO，或者称为二进制IO。fread和fwrite支持这种类型的IO
+
+### 输入函数
+
+以下函数可以一次读取一个字符
+
+```cpp
+#include <stdio.h>
+
+int getc(FILE* fp);  // 可以实现为宏
+int fgetc(FILE* fp);  // 不能实现为宏
+int getchar(void); // 等同于fgetc(stdin);
+
+若成功，返回下一个字符；若已到文件结尾或出错，返回EOF
+```
+
+返回值会将unsigned char转换为int类型。无符号即使最高位为1也不会返回负值。要求int返回值是因为除了返回所有可能的字符，还要加上一个已出错或到达文件尾端的标记值。EOF被要求是一个负值，通常为-1
+
+为了区分出错或到达文件尾端，需要使用以下函数进行区分
+
+```cpp
+#include <stdio.h>
+
+int ferror(FILE* fp);
+int feof(FILE* fp);
+
+若条件为真，返回非0；否则，返回0
+
+void clearerr(FILE* fp);
+```
+
+大多数实现在文件指针中维护了两个标志：出错标志和文件结束标志；调用clearerr可以清除这两个标志
+
+从流中读取数据后，可以调用ungetc再将字符压入流中
+
+```cpp
+#include <stdio.h>
+
+int ungetc(int c, FILE* fp);
+
+若成功，返回c；若出错，返回EOF
+```
+
+压送回流的字符又可以从流中读出，但读出字符的顺序与压送回流的顺序相反。回送的字符不一定必须是上次读到的字符，不能回送EOF。但是当已经达到文件尾端时，仍可以回送一个字符。调用ungetc只是将字符写入流缓冲区中
+
+### 输出函数
+
+```cpp
+#include <stdio.h>
+
+int putc(int c, FILE* fp);  // 可以实现为宏
+int fputc(int c, FILE* fp);  // 不能实现为宏
+int putchar(int c); // 等同于fputc(stdin);
+
+若成功，返回c；若出错，返回EOF
+```
+
+## 每次一行IO
+
+由以下函数提供每次输入一行的功能
+
+```cpp
+#include <stdio.h>
+
+char* fgets(char* restrict buf, int n, FILE* restrict fp);
+char* gets(char* restrict buf);  // 可能造成缓冲区溢出，应使用fgets(buf, n, stdin)替换
+
+若成功，返回buf；若已到达文件末尾或出错，返回NULL
+```
+
+fgets读取不超过n-1个字符，buf总是以null字节结尾。gets不将换行符写入buf，而fgets则将换行符写入buf
+
+fputs和puts提供每次输出一行的功能
+
+```cpp
+#include <stdio.h>
+
+int fputs(const char* restrict str, FILE* restrict fp);
+int puts(const char* str);  // 等价于fputs(str, stdout); fputs("\n", stdout);
+
+若成功，返回非负值；若出错，返回EOF
+```
+
+应尽量使用fget和fputs组合，以便记得在每行终止时必须处理换行符
+
+## 标准IO的效率
+
+![标准IO库的效率](https://gwq5210.com/images/标准IO库的效率.png)
+
+## 二进制IO
+
+使用以下函数处理二进制IO
+
+```cpp
+#include <stdio.h>
+
+size_t fread(void* restrict ptr, size_t size, size_t nobj, FILE* restrict fp);
+size_t fwrite(const void* restrict ptr, size_t size, size_t nobj, FILE* restrict fp);
+
+返回读或写的对象数
+```
+
+对于读，如果出错或到达文件尾端，则此数字可以小于nobj，这时应调用ferror或feof判断是哪种情况。对于写如果返回值小于nobj则出错
+
+二进制IO需要对读写的数据有限制，否则可能产生兼容性的问题。如结构体对齐问题，导致数据错误
+
+## 定位流
+
+有三种方法定位标准IO流
+
+- ftell和fseek，用long进行定位
+- ftello和fseeko，用off_t进行定位
+- fgetpos和fsetpos，由ISO C引入，使用fpos_t进行定位；移植到非UNIX系统的应用程序应当使用这两个函数
+
+```cpp
+#include <stdio.h>
+
+long ftell(FILE* fp);
+
+若成功，返回当前文件位置指示；若出错，返回-1L
+
+int fseek(FILE* fp, long offset, int whence);  // whence与lseek的参数相同
+
+若成功，返回0；若出错，返回-1
+
+void rewind(FILE* fp);
+```
+
+可以使用rewind将流设置到文件的起始位置
+
+除了偏移类型是off_t外，ftello和fseeko函数与上述函数相同
+
+```cpp
+#include <stdio.h>
+
+int fgetpos(FILE* restrict fp, fpos_t* restrict pos);
+int fsetpos(FILE* fp, const fpos_t* pos);
+
+若成功，返回0；若出错，返回非0
+```
+
+## 格式化IO
+
+格式化IO有scanf和printf函数族来实现，同时也提供了vscanf和vprintf函数族来处理可变参数
+
+有关格式化IO的详细信息，这里不过多介绍，需要时可以参考手册或书籍
+
+## 标准IO库的文件描述符
+
+fileno可以获取对应流关联的文件描述符，其不是ISO C标准，不可移植
+
+```cpp
+#include <stdio.h>
+
+int fileno(FILE* fp);
+
+返回与流相关联的文件描述符
+```
+
+## 临时文件
+
+ISO C标准库提供了两个函数来帮助创建临时文件
+
+```cpp
+#include <stdio.h>
+
+char* tmpnam(char* ptr);
+
+返回指向唯一路径名的指针
+
+FILE* tmpfile(void);
+
+若成功，返回文件指针；若出错，返回NULL
+```
+
+tmpnam函数产生一个与现有文件名不通的有效路径名字符串，最多调动TMP_MAX次。若ptr是NULL，则所产生的路径名存放在静态存储区中，指向该静态区的指针作为返回值返回。若ptr不为空，则长度至少为L_tmpnam，并返回ptr
+
+tmpfile创建一个临时二进制文件（wb+），在关闭该文件或程序结束时将自动删除这中文件。其原理一般是调用tmpnam函数产生一个唯一路径名，然后用该路径名创建一个文件，并立即unlink它
+
+另外mkdtemp和mkstemp也可以创建临时目录或文件。
+
+一般应使用mkstemp（文件不会自动删除）和tmpfile，因为使用tmpnam和tempnam至少有一个缺点：因为在调用其获取唯一文件名和创建文件之间，可能有其他进程使用相同名字创建文件，而mkstemp和tmpfile不存在这个问题
+
+## 内存流
+
+内存流一般不会用到，不做介绍
+
+## 标准IO库的替代软件
+
+标准IO库有一些缺点。效率不高，通常需要复制两次数据：内核到标准IO库缓冲区、标准IO库缓冲区到用户程序缓冲区。
+
+mmap函数也可以用来读写文件
+
+# 第六章 系统数据文件和信息
 
