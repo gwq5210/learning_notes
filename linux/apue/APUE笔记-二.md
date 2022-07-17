@@ -15,6 +15,11 @@
   - [内存流](#内存流)
   - [标准IO库的替代软件](#标准io库的替代软件)
 - [第六章 系统数据文件和信息](#第六章-系统数据文件和信息)
+  - [口令文件](#口令文件)
+  - [登录账户记录](#登录账户记录)
+  - [系统标识](#系统标识)
+  - [时间和日期例程](#时间和日期例程)
+- [进程环境](#进程环境)
 
 # 第五章 标准IO库
 
@@ -357,4 +362,66 @@ tmpfile创建一个临时二进制文件（wb+），在关闭该文件或程序�
 mmap函数也可以用来读写文件
 
 # 第六章 系统数据文件和信息
+
+UNIX系统有很多与系统有关的数据文件，由于历史原因这些数据文件都是ASCII文本文件，本章简单介绍这些文件。除此之外还介绍系统标识函数、时间和日期函数
+
+## 口令文件
+
+UNIX系统口令文件包含如下字段，其定义在<pwd.h>中的passwd结构中
+
+![passwd文件中的字段](https://gwq5210.com/images/passwd文件中的字段.png)
+
+可以通过getpwuid和getpwunam获取uid或name，同时也提供了函数来读取/etc/passwd文件，具体可查看文档
+
+目前，加密口令一般存放在阴影口令文件中，一般为/etc/shadow，可以通过函数来读取加密口令
+
+组文件一般为/etc/group。UNXI系统一般支持附属组，一个用户可以加入多个附属组中，用户附属组可以通过函数获取
+
+## 登录账户记录
+
+大多数UNIX会提供utmp——记录当前登录到系统的各个用户，wtmp——跟踪各个登录和注销事件，其一般为二进制文件，存放相应的结构体
+
+## 系统标识
+
+可以通过uname获取系统标识，一般包括如下字段
+
+```cpp
+struct utsname {
+  char sysname[];  // name of the operating system
+  char nodename[];  // name of the node
+  char release[];  // current release of operating system
+  char version[];  // current version of release
+  char machine[];  // name of hardware type
+};
+```
+
+历史上，BSD派生的系统提供gethostname函数，它只返回主机名，改名字通常就是TCP/IP网络上主机的名字
+
+## 时间和日期例程
+
+time函数返回自协调世界时公元1970年1月1日 00:00:00这一特定时间以来经过的秒数
+
+clock_gettime函数可用于获取指定时钟时间，clock_getres用于获取指定时钟精度，clock_settime对特定的时钟设置时间
+
+gettimeofday可以获取微秒级的时间
+
+其余函数可以将秒数转换为tm结构体，如下
+
+```cpp
+struct tm {
+  int tm_sec;                   /* Seconds.     [0-60] (1 leap second) */
+  int tm_min;                   /* Minutes.     [0-59] */
+  int tm_hour;                  /* Hours.       [0-23] */
+  int tm_mday;                  /* Day.         [1-31] */
+  int tm_mon;                   /* Month.       [0-11] */
+  int tm_year;                  /* Year - 1900.  */
+  int tm_wday;                  /* Day of week. [0-6] */
+  int tm_yday;                  /* Days in year.[0-365] */
+  int tm_isdst;                 /* DST.         [-1/0/1]*/
+};
+```
+
+![时间函数之间的关系](https://gwq5210.com/images/时间函数之间的关系.png)
+
+# 进程环境
 
