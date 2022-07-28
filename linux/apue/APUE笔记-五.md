@@ -1,5 +1,6 @@
 - [第十四章 高级IO](#第十四章-高级io)
   - [非阻塞IO](#非阻塞io)
+  - [记录锁](#记录锁)
 
 # 第十四章 高级IO
 
@@ -16,3 +17,44 @@
 
 虽然读写磁盘文件会暂时阻塞调用者，但并不能将与磁盘IO有关的系统调用视为“低速”
 
+非阻塞IO使我们可以发出open、read和write这样的IO操作，并使这些操作不会永远阻塞。如果这种操作不能完成，则调用立即出错返回，表示该操作如继续执行将阻塞。设置阻塞方法如下
+
+- 如果调用open获得描述符，则可指定O_NONBLOCK标志
+- 对于已经打开的一个描述符，则可调用fcntl，由该函数打开O_NONBLOCK文件状态标志。
+
+## 记录锁
+
+记录锁（record locking）的功能是：当一个进程正在读或修改文件的某个部分时，使用记录锁可以阻止其他进程修改同一文件区。对于UNIX系统而言，“记录”这个词是一个误用，因为UNIX系统内核根本没有使用文件记录这个概念。一个更适合的术语可能是字节范围锁（byte-range locking），因为它锁定的只是文件中的一个区域（也可能是整个文件）
+
+POSIX.1使用fcntl来创建记录锁
+
+```cpp
+#include <fcntl.h>
+
+int fcntl(int fd, int cmd, .../* struct flock* flockptr */);
+
+若成功，返回值依赖于cmd；若出错，返回-1
+```
+
+对于记录锁，cmd是F_GETLK、F_SETLK或F_SETLKW。第三个参数（我们将调用flockptr）是一个指向flock结构的指针
+
+```cpp
+struct flock {
+  short l_type;  // F_RDLCK, F_WRLCK or F_UNLCK
+  short l_whence;  // SEEK_SET, SEEK_CUR or SEEK_END
+  off_t l_start;  // offset in bytes, relative to l_whence
+  off_t l_len;  // length, in bytes; 0 means lock to EOF
+  pid_t l_pid;  // returned with F_GETLK
+};
+```
+
+- 进程的ID（l_pid）持有的锁能阻塞当前进程（仅有F_GETLK返回）
+- 锁可以在当前文件尾端处开始或者越过尾端处开始，但是不能在文件起始位置之前开始
+- 如若l_len为0，则表示锁的范围可以扩展到最大可能偏移量。这意味着不管向该文件中追加写了多少数据，它们都可以处于锁的范围内（不必猜测会有多少字节被追加写到了文件之后），而且起始位置可以是文件中的任意一个位置
+- 为了对整个文件加锁，我们设置l_start和l_whence指向文件的起始位置，并且指定长度（l_len）为0
+
+![不同类型锁彼此之间的兼容性](https://gwq5210.com/images/不同类型锁彼此之间的兼容性.png)
+
+上述兼容性规则适用于不同进程提出的锁请求，并不适用于单个进程提出的多个锁请求。如果一个进程对一个文件区间已经有了一把锁，后来该进程又企图在同一文件区间再加一把锁，那么新锁将替换已有锁。加读锁时，该描述符必须是读打开的。加写锁时，该描述符必须是写打开的
+
+- 
