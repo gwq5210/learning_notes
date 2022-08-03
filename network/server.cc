@@ -22,15 +22,16 @@ int socket_bind(const std::string &host, int port) {
     return fd;
   }
 
-  struct sockaddr_in svraddr;
-  memset(&svraddr, 0, sizeof(struct sockaddr_in));
-  svraddr.sin_family = AF_INET;
-  inet_pton(AF_INET, host.c_str(), &svraddr.sin_addr);
-  svraddr.sin_port = htons(port);
-  if (bind(fd, (struct sockaddr *)&svraddr, sizeof(svraddr)) < 0) {
-    perror("bind error:");
-    return -1;
-  }
+  // 不bind可以listen，但是端口是随机的
+  // struct sockaddr_in svraddr;
+  // memset(&svraddr, 0, sizeof(struct sockaddr_in));
+  // svraddr.sin_family = AF_INET;
+  // inet_pton(AF_INET, host.c_str(), &svraddr.sin_addr);
+  // svraddr.sin_port = htons(port);
+  // if (bind(fd, (struct sockaddr *)&svraddr, sizeof(svraddr)) < 0) {
+  //   perror("bind error:");
+  //   return -1;
+  // }
 
   return fd;
 }
@@ -85,7 +86,8 @@ int my_sleep(int seconds) {
 
 int server_run() {
   int fd = socket_bind(kHost, kPort);
-  listen(fd, kMaxListenCount);
+  int ret = listen(fd, kMaxListenCount);
+  printf("listen ret %d, errno %d, %s\n", ret, errno, strerror(errno));
   while (true) {
     my_sleep(1000000);
     int client_fd = handle_accept(fd);
