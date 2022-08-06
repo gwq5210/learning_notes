@@ -715,3 +715,26 @@ int socketpair(int domain, int type, int protocol, int sockfd[2]);
 
 ## 命名UNIX域套接字
 
+可以命名UNIX域套接字，并可将其用于告示服务。但是要注意，UNIX域套接字使用的地址格式不同于因特网域套接字
+
+UNIX域套接字的地址由sockaddr_un结构表示。一般在<sys/un.h>中定义，在Linux 3.2.0中定义如下
+
+```cpp
+
+// Linux 3.2.0 and Solaris 10
+struct sockaddr_un {
+  sa_family_t sun_family;  // AF_UNIX
+  char sun_path[108];  // pathname
+};
+
+// FreeBSD 8.0 and Mac OS X 10.6.8
+struct sockaddr_un {
+  unsigned char sun_len;  // sockaddr length
+  sa_family_t sun_family;  // AF_UNIX
+  char sun_path[108];  // pathname
+};
+```
+
+sun_path成员包含一个路径名。当我们将一个地址绑定到一个UNIX域套接字时，系统会用该路径名创建一个S_IFSOCK类型的文件。该文件仅用于向客户进程告示套接字名字。该文件无法打开，也不能由应用程序用于通信。
+
+如果我们试图绑定同一地址时，该文件已经存在，那么bind请求会失败。当关闭套接字时，并不会自动删除文件，所以必须确保在应用程序退出前，对该文件执行解除链接操作
